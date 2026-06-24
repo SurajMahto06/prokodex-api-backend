@@ -69,6 +69,7 @@ export const login = async (req: Request, res: Response) => {
     res.status(200).json({
       message: 'Logged in successfully',
       user: formatUserResponse(formattedUser),
+      token: token // Sending token in body for mobile browsers that block cookies
     });
   } catch (error: any) {
     console.error('Login error:', error);
