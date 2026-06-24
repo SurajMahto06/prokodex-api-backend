@@ -1,0 +1,295 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// =======================
+// User & Auth
+// =======================
+
+enum Role {
+  ADMIN
+  MENTOR
+  STUDENT
+}
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  password           String
+  name               String
+  role               Role     @default(STUDENT)
+  avatarUrl          String?
+  plan               String?  // 'premium', 'elite', 'standard', 'none'
+  status             String   @default("active") // 'active', 'inactive', 'pending'
+  progressPercentage Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Student specific relationships
+  enrollments        CourseEnrollment[]
+  topicCompletions   TopicCompletion[]
+  assignmentsAsStudent Assignment[]  @relation("StudentAssignments")
+  certificates      Certificate[]    @relation("StudentCertificates")
+
+  // Mentor specific relationships
+  mentorCourses      MentorCourse[]
+  menteesRelation    Mentorship[] @relation("MentorToMentee")
+  mentorsRelation    Mentorship[] @relation("MenteeToMentor")
+  assignmentsAsMentor Assignment[]   @relation("MentorAssignments")
+
+  // General relationships
+  qaThreads         MentorshipQA[]
+  qaReplies         QAReply[]
+  notifications     AppNotification[]
+}
+
+// =======================
+// Explicit Many-to-Many
+// =======================
+
+model CourseEnrollment {
+  id        String   @id @default(uuid())
+  userId    String
+  courseId  String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+model TopicCompletion {
+  id        String   @id @default(uuid())
+  userId    String
+  topicId   String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId])
+}
+
+model MentorCourse {
+  id        String   @id @default(uuid())
+  mentorId  String
+  courseId  String
+  createdAt DateTime @default(now())
+
+  mentor    User     @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([mentorId, courseId])
+}
+
+model Mentorship {
+  id        String   @id @default(uuid())
+  mentorId  String
+  menteeId  String
+  createdAt DateTime @default(now())
+
+  mentor    User     @relation("MentorToMentee", fields: [mentorId], references: [id], onDelete: Cascade)
+  mentee    User     @relation("MenteeToMentor", fields: [menteeId], references: [id], onDelete: Cascade)
+
+  @@unique([mentorId, menteeId])
+}
+
+// =======================
+// Courses & Modules
+// =======================
+
+model Course {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  thumbnail   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  modules     CourseModule[]
+  enrollments CourseEnrollment[]
+  mentorCourses MentorCourse[]
+  assignments Assignment[]
+  qaThreads   MentorshipQA[]
+  certificates Certificate[]
+}
+
+model CourseModule {
+  id        String   @id @default(uuid())
+  title     String
+  order     Int      @default(0)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  topics    Topic[]
+}
+
+model Topic {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  moduleId    String
+  module      CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  // Completed by Students
+  completions TopicCompletion[]
+
+  pdfUrl      String?
+  cheatsheetUrl String?
+
+  // Embedded related content (converted to related tables)
+  video       Video?
+  mcqs        MCQQuestion[]
+  interviewQs InterviewQuestion[]
+}
+
+model Video {
+  id        String @id @default(uuid())
+  title     String
+  duration  String
+  videoUrl  String
+  topicId   String @unique
+  topic     Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+model MCQQuestion {
+  id              String   @id @default(uuid())
+  question        String   @db.Text
+  explanation     String?  @db.Text
+  topicId         String
+  topic           Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  options         MCQOption[]
+  correctOptionId String?  // ID of the correct MCQOption
+}
+
+model MCQOption {
+  id         String      @id @default(uuid())
+  text       String
+  questionId String
+  question   MCQQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model InterviewQuestion {
+  id       String   @id @default(uuid())
+  question String   @db.Text
+  hints    Json?    // Storing array of strings as JSON
+  topicId  String
+  topic    Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+// =======================
+// Q&A & Mentorship
+// =======================
+
+model MentorshipQA {
+  id         String   @id @default(uuid())
+  question   String   @db.Text
+  imageUrls  Json?    // Array of URLs
+  status     String   @default("pending") // 'pending', 'answered'
+  createdAt  DateTime @default(now())
+
+  studentId  String
+  student    User     @relation(fields: [studentId], references: [id])
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id])
+  
+  replies    QAReply[]
+}
+
+model QAReply {
+  id         String   @id @default(uuid())
+  content    String   @db.Text
+  imageUrls  Json?
+  createdAt  DateTime @default(now())
+
+  qaThreadId String
+  qaThread   MentorshipQA @relation(fields: [qaThreadId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+}
+
+// =======================
+// Assignments & Notifications
+// =======================
+
+model Assignment {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  status      String   @default("pending_submission") // 'pending_submission', 'submitted', 'approved', 'rejected'
+  repoUrl     String?
+  fileName    String?
+  fileUrl     String?
+  assignedAt  DateTime @default(now())
+  dueDate     DateTime?
+  submittedAt DateTime?
+
+  studentId   String
+  student     User     @relation("StudentAssignments", fields: [studentId], references: [id])
+  mentorId    String
+  mentor      User     @relation("MentorAssignments", fields: [mentorId], references: [id])
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id])
+}
+
+model AppNotification {
+  id         String   @id @default(uuid())
+  title      String
+  message    String   @db.Text
+  isRead     Boolean  @default(false)
+  isDismissed Boolean  @default(false)
+  type       String   @default("info") // 'info', 'success', 'warning', 'alert'
+  targetRole String?  // If it's a global notification for a specific role
+  createdAt  DateTime @default(now())
+
+  userId      String?  // Null means it's 'all' users
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([isDismissed])
+  @@index([createdAt])
+}
+
+model Certificate {
+  id            String   @id @default(uuid())
+  certificateId String   @unique
+  issueDate     DateTime @default(now())
+  startDate     DateTime?
+  endDate       DateTime?
+  createdAt     DateTime @default(now())
+
+  studentId     String
+  student       User     @relation("StudentCertificates", fields: [studentId], references: [id])
+  courseId      String
+  course        Course   @relation(fields: [courseId], references: [id])
+}
+
+// =======================
+// Global Settings
+// =======================
+
+model Settings {
+  id                       String   @id @default("global")
+  platformName             String   @default("Prokodex Mentorship Portal")
+  supportEmail             String   @default("support@prokodex.com")
+  maintenanceMode          Boolean  @default(false)
+  updatedAt                DateTime @updatedAt
+}
+
+// =======================
+// Coupon & Billing
+// =======================
+
+model Coupon {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  type      String   // 'flat' or 'percentage'
+  value     Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
