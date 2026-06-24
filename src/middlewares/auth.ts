@@ -29,6 +29,21 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     }
 
     const decoded = verifyToken(token) as any;
+    
+    // Fetch latest user status to ensure they haven't been deactivated
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { status: true }
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: 'User account not found' });
+    }
+
+    if (user.status === 'inactive') {
+      return res.status(403).json({ message: 'Your account has been deactivated.' });
+    }
+
     req.user = decoded;
 
     const settings = await prisma.settings.findUnique({ where: { id: 'global' } });
