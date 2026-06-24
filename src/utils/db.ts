@@ -9,6 +9,7 @@ const adapter = new PrismaMariaDb({
   user: decodeURIComponent(url.username),
   password: decodeURIComponent(url.password),
   database: url.pathname.replace('/', ''),
+  connectTimeout: 20000,
   ...(url.hostname !== 'localhost' && url.hostname !== '127.0.0.1' ? { ssl: { rejectUnauthorized: false } } : {})
 });
 
