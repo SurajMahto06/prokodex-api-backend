@@ -275,7 +275,7 @@ model Certificate {
 model Settings {
   id                       String   @id @default("global")
   platformName             String   @default("Prokodex Mentorship Portal")
-  supportEmail             String   @default("support@prokodex.com")
+  supportEmail             String   @default("info@prokodex.in")
   maintenanceMode          Boolean  @default(false)
   updatedAt                DateTime @updatedAt
 }
