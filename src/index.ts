@@ -19,6 +19,7 @@ import certificateRoutes from './routes/certificateRoutes';
 import statsRoutes from './routes/statsRoutes';
 import settingsRoutes from './routes/settings';
 import couponRoutes from './routes/couponRoutes';
+import blogRoutes from './routes/blogRoutes';
 import { apiLimiter } from './middlewares/rateLimiter';
 
 const app = express();
@@ -60,6 +61,7 @@ app.use('/api/v1/certificates', certificateRoutes);
 app.use('/api/v1/stats', statsRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/coupons', couponRoutes);
+app.use('/api/v1/blogs', blogRoutes);
 
 // Basic health check endpoint
 app.get('/health', (req, res) => {
